@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteo Exprés del Millón - Tucumán</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="max-w-4xl mx-auto p-4">
+        <!-- Encabezado -->
+        <header class="text-center py-6">
+            <h1 class="text-4xl font-extrabold text-yellow-400">SORTEO EXPRÉS DEL MILLÓN</h1>
+            <p class="text-gray-300 mt-2">Ganá $10.000.000 ARS. ¡Elegí tu número por solo $1.000 ARS!</p>
+        </header>
+
+        <!-- Formulario de Selección y Pago -->
+        <div id="checkoutModal" class="bg-gray-800 p-6 rounded-lg mb-8 shadow-xl hidden">
+            <h2 class="text-xl font-bold mb-4 text-green-400">Comprar Número: <span id="selectedNumberDisplay" class="text-white"></span></h2>
+            <form id="purchaseForm" class="space-y-4">
+                <input type="hidden" id="selectedNumber">
+                <div>
+                    <label class="block text-sm mb-1">Nombre Completo</label>
+                    <input type="text" id="nombre" required class="w-full p-2 bg-gray-700 rounded border border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">Correo Electrónico</label>
+                    <input type="email" id="email" required class="w-full p-2 bg-gray-700 rounded border border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">Teléfono / WhatsApp</label>
+                    <input type="tel" id="telefono" required class="w-full p-2 bg-gray-700 rounded border border-gray-600">
+                </div>
+                <div>
+                    <label class="block text-sm mb-1">Código de Referido (Opcional)</label>
+                    <input type="text" id="referido" placeholder="Ej: JUAN123" class="w-full p-2 bg-gray-700 rounded border border-gray-600">
+                </div>
+                <div class="flex gap-4">
+                    <button type="submit" class="w-full bg-green-500 hover:bg-green-600 py-2 rounded font-bold">Pagar $1.000 con Mercado Pago</button>
+                    <button type="button" onclick="cerrarFormulario()" class="bg-gray-600 px-4 py-2 rounded">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Buscador de números -->
+        <div class="mb-4">
+            <input type="text" id="searchInput" placeholder="Buscar número (ej: 0421)..." onkeyup="filtrarNumeros()" class="w-full p-3 bg-gray-800 rounded border border-gray-700">
+        </div>
+
+        <!-- Grilla de Números -->
+        <div id="grid" class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 h-96 overflow-y-auto p-2 bg-gray-800 rounded">
+            <p class="text-center col-span-full py-8">Cargando números...</p>
+        </div>
+    </div>
+
+    <script>
+        let todosLosNumeros = [];
+
+        async function cargarNumeros() {
+            const res = await fetch('/api/numeros');
+            todosLosNumeros = await res.json();
+            renderGrilla(todosLosNumeros);
+        }
+
+        function renderGrilla(lista) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            lista.forEach(n => {
+                const btn = document.createElement('button');
+                btn.className = `p-2 text-xs font-bold rounded ${n.estado === 'disponible' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-red-800 opacity-50 cursor-not-allowed'}`;
+                btn.innerText = n.numero;
+                if(n.estado === 'disponible') {
+                    btn.onclick = () => abrirFormulario(n.numero);
+                }
+                grid.appendChild(btn);
+            });
+        }
+
+        function abrirFormulario(num) {
+            document.getElementById('selectedNumber').value = num;
+            document.getElementById('selectedNumberDisplay').innerText = num;
+            document.getElementById('checkoutModal').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cerrarFormulario() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+        }
+
+        function filtrarNumeros() {
+            const val = document.getElementById('searchInput').value;
+            const filtrados = todosLosNumeros.filter(n => n.numero.includes(val));
+            renderGrilla(filtrados);
+        }
+
+        document.getElementById('purchaseForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const body = {
+                numero: document.getElementById('selectedNumber').value,
+                nombre: document.getElementById('nombre').value,
+                email: document.getElementById('email').value,
+                telefono: document.getElementById('telefono').value,
+                referido: document.getElementById('referido').value
+            };
+
+            const res = await fetch('/api/comprar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+            if(data.init_point) {
+                window.location.href = data.init_point;
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo generar la orden de pago'));
+            }
+        };
+
+        cargarNumeros();
+    </script>
+</body>
+</html>
